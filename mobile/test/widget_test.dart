@@ -42,7 +42,7 @@ Future<void> launch(WidgetTester tester,
     tester.view.resetDevicePixelRatio();
     tester.platformDispatcher.clearTextScaleFactorTestValue();
   });
-  await tester.pumpWidget(LolaPayApp(api: sandboxApi(offline: offline)));
+  await tester.pumpWidget(LolaPayApp(api: sandboxApi(offline: offline), requireAuth: false));
   await tester.pumpAndSettle();
 }
 
@@ -66,7 +66,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('bottom-Historique')));
     await tester.pumpAndSettle();
     expect(find.text('Historique'), findsNWidgets(2));
-    await tester.tap(find.byTooltip('Fermer'));
+    await tester.tap(find.byTooltip('Retour'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('page-dot-0')).last);
     await tester.pumpAndSettle();
@@ -103,7 +103,7 @@ void main() {
     final storage = await SharedPreferences.getInstance();
     expect(storage.getString('lola.favorites.v1'), contains('Ada Test'));
     await tester.pumpWidget(const SizedBox());
-    await tester.pumpWidget(LolaPayApp(api: sandboxApi()));
+    await tester.pumpWidget(LolaPayApp(api: sandboxApi(), requireAuth: false));
     await tester.pumpAndSettle();
     expect(find.text('Ada Test'), findsOneWidget);
   });
@@ -115,10 +115,13 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('bottom-recharge')));
     await tester.pumpAndSettle();
-    expect(find.text('Réseau source'), findsOneWidget);
-    await tester.tap(find.text('Voir le récapitulatif'));
+    expect(find.text('Autre réseau compatible'), findsOneWidget);
+    await tester.tap(find.text('10 000'));
     await tester.pumpAndSettle();
-    expect(find.text('Total à payer'), findsOneWidget);
+    await tester.tap(find.text('Continuer'));
+    await tester.pumpAndSettle();
+    expect(find.text('Vérifier et confirmer'), findsOneWidget);
+    expect(find.text('Montant total'), findsOneWidget);
     expect(find.text('Confirmer'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -148,4 +151,85 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  group('connexion par numéro et code OTP', () {
+    Future<void> openApp(WidgetTester tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      await tester.pumpWidget(
+          LolaPayApp(api: sandboxApi(), auth: DemoAuthRepository()));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('première connexion : numéro, code, profil puis Mon argent',
+        (tester) async {
+      await openApp(tester);
+      expect(find.text('Bienvenue sur Lola Pay'), findsOneWidget);
+      await tester.enterText(
+          find.byKey(const ValueKey('auth-phone-field')), '01 23 45 67 89');
+      await tester.tap(find.text('Continuer'));
+      await tester.pumpAndSettle();
+      expect(find.text('Code de vérification'), findsOneWidget);
+      await tester.enterText(
+          find.byKey(const ValueKey('auth-otp-field')), '123456');
+      await tester.pumpAndSettle();
+      expect(find.text('Crée ton profil'), findsOneWidget);
+      await tester.enterText(
+          find.byKey(const ValueKey('auth-first-name')), 'Ada');
+      await tester.enterText(
+          find.byKey(const ValueKey('auth-last-name')), 'Test');
+      await tester.enterText(
+          find.byKey(const ValueKey('auth-create-pin')), '1234');
+      await tester.tap(find.byKey(const ValueKey('auth-terms')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Créer mon compte'));
+      await tester.pumpAndSettle();
+      expect(find.text('25 000 FCFA'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('numéro invalide et mauvais code affichent une erreur',
+        (tester) async {
+      await openApp(tester);
+      await tester.enterText(
+          find.byKey(const ValueKey('auth-phone-field')), '12 34');
+      await tester.tap(find.text('Continuer'));
+      await tester.pumpAndSettle();
+      expect(find.text('Indique les 10 chiffres, en commençant par 01.'),
+          findsOneWidget);
+      await tester.enterText(
+          find.byKey(const ValueKey('auth-phone-field')), '0123456789');
+      await tester.tap(find.text('Continuer'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+          find.byKey(const ValueKey('auth-otp-field')), '000000');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Code incorrect'), findsOneWidget);
+    });
+
+    testWidgets('retour dans l’app : verrouillage par PIN', (tester) async {
+      SharedPreferences.setMockInitialValues({
+        'lola.demo.session': '+2290123456789',
+        'lola.demo.profiles': jsonEncode({
+          '+2290123456789': {'firstName': 'Ada', 'lastName': 'Test'}
+        }),
+        'lola.pin.+2290123456789': '1234',
+        'lola.auth.lastPhone': '+2290123456789',
+      });
+      await openApp(tester);
+      expect(find.text('Bon retour, Ada'), findsOneWidget);
+      await tester.enterText(
+          find.byKey(const ValueKey('auth-pin-field')), '0000');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Code PIN incorrect'), findsOneWidget);
+      await tester.enterText(
+          find.byKey(const ValueKey('auth-pin-field')), '1234');
+      await tester.pumpAndSettle();
+      expect(find.text('25 000 FCFA'), findsOneWidget);
+    });
+  });
 }

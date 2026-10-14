@@ -5,8 +5,9 @@ const _ink = Color(0xFF17201D);
 const _networks = ['MTN Mobile Money', 'Moov Money', 'Celtiis Cash'];
 
 class HomeShell extends StatefulWidget {
-  const HomeShell({super.key, this.api});
+  const HomeShell({super.key, this.api, this.onSignOut});
   final DemoApi? api;
+  final VoidCallback? onSignOut;
 
   @override
   State<HomeShell> createState() => _HomeShellState();
@@ -117,13 +118,23 @@ class _HomeShellState extends State<HomeShell> {
     }
   }
 
-  void _recharge() =>
-      _sheet(context, RechargeSheet(api: api, onComplete: refresh));
+  String get _phone => wallet?['user']?['phone']?.toString() ?? '';
 
-  void _send([Map<String, String>? favorite]) =>
-      _sheet(context, _TransferFlowSheet(favorite: favorite));
+  void _recharge() => _sheet(
+      context,
+      RechargeSheet(
+          api: api, phone: _phone, onComplete: refresh, onHistory: _history));
 
-  void _withdraw() => _sheet(context, const _WithdrawFlowSheet());
+  void _send([Map<String, String>? favorite]) => _sheet(
+      context,
+      _MoneyFlowSheet(
+          kind: _MoneyKind.transfer,
+          favorites: favorites,
+          favorite: favorite,
+          phone: _phone));
+
+  void _withdraw() => _sheet(context,
+      _MoneyFlowSheet(kind: _MoneyKind.withdraw, phone: _phone));
 
   void _history() => _sheet(
       context,
@@ -178,6 +189,14 @@ class _HomeShellState extends State<HomeShell> {
               Navigator.pop(context);
               unawaited(refresh());
             }),
+        if (widget.onSignOut != null)
+          ListTile(
+              leading: const Icon(Icons.logout, color: primary),
+              title: const Text('Se déconnecter'),
+              onTap: () {
+                Navigator.pop(context);
+                widget.onSignOut!();
+              }),
         const Divider(),
         const Text('Lola Pay · Version de démonstration',
             style: TextStyle(color: muted, height: 1.5)),
@@ -1098,154 +1117,6 @@ class _SheetLayout extends StatelessWidget {
                   ]))));
 }
 
-class _TransferFlowSheet extends StatefulWidget {
-  const _TransferFlowSheet({this.favorite});
-  final Map<String, String>? favorite;
-  @override
-  State<_TransferFlowSheet> createState() => _TransferFlowSheetState();
-}
-
-class _TransferFlowSheetState extends State<_TransferFlowSheet> {
-  final amount = TextEditingController();
-  final phone = TextEditingController();
-  bool review = false;
-  @override
-  void initState() {
-    super.initState();
-    phone.text = widget.favorite?['phone'] ?? '';
-  }
-
-  @override
-  void dispose() {
-    amount.dispose();
-    phone.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => _SheetLayout(
-          title: review ? 'Vérifier le transfert' : 'Nouveau transfert',
-          children: [
-            _FlowProgress(current: review ? 2 : 1, total: 2),
-            const SizedBox(height: 18),
-            if (!review) ...[
-              SegmentedButton<String>(segments: const [
-                ButtonSegment(value: 'Contact', label: Text('Contact')),
-                ButtonSegment(value: 'Numéro', label: Text('Numéro')),
-              ], selected: const {
-                'Numéro'
-              }, onSelectionChanged: (_) {}),
-              const SizedBox(height: 16),
-              TextField(
-                  controller: phone,
-                  keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                      labelText: 'Numéro de téléphone',
-                      hintText: '+229 01 23 45 67 89')),
-              const SizedBox(height: 12),
-              TextField(
-                  controller: amount,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                      labelText: 'Montant', suffixText: 'FCFA')),
-              const SizedBox(height: 20),
-              FilledButton(
-                  onPressed: () => setState(() => review = true),
-                  child: const Text('Continuer')),
-            ] else ...[
-              const _FlowSummary(
-                  label: 'Destinataire', value: '+229 01 23 45 67 89'),
-              _FlowSummary(label: 'Montant', value: '10 000 FCFA'),
-              const _FlowSummary(label: 'Frais', value: '0 FCFA'),
-              const Divider(height: 28),
-              FilledButton(onPressed: null, child: const Text('Confirmer')),
-              const SizedBox(height: 12),
-              const Text(
-                  'Le transfert est présenté pour validation visuelle. Le service de transfert n’est pas encore activé.',
-                  style: TextStyle(color: muted, height: 1.45)),
-            ],
-          ]);
-}
-
-class _WithdrawFlowSheet extends StatefulWidget {
-  const _WithdrawFlowSheet();
-  @override
-  State<_WithdrawFlowSheet> createState() => _WithdrawFlowSheetState();
-}
-
-class _WithdrawFlowSheetState extends State<_WithdrawFlowSheet> {
-  bool review = false;
-  @override
-  Widget build(BuildContext context) => _SheetLayout(
-          title: review ? 'Vérifier le retrait' : 'Retrait',
-          children: [
-            _FlowProgress(current: review ? 2 : 1, total: 2),
-            const SizedBox(height: 18),
-            if (!review) ...[
-              const _NetworkOption(
-                  name: 'MTN Mobile Money', selected: true, onTap: _noop),
-              const SizedBox(height: 8),
-              const _NetworkOption(
-                  name: 'Moov Money', selected: false, onTap: _noop),
-              const SizedBox(height: 16),
-              const TextField(
-                  keyboardType: TextInputType.phone,
-                  decoration:
-                      InputDecoration(labelText: 'Numéro de téléphone')),
-              const SizedBox(height: 12),
-              const TextField(
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                      labelText: 'Montant', suffixText: 'FCFA')),
-              const SizedBox(height: 20),
-              FilledButton(
-                  onPressed: () => setState(() => review = true),
-                  child: const Text('Continuer')),
-            ] else ...[
-              const _FlowSummary(label: 'Réseau', value: 'MTN Mobile Money'),
-              const _FlowSummary(label: 'Montant', value: '5 000 FCFA'),
-              const _FlowSummary(label: 'Frais', value: '0 FCFA'),
-              const Divider(height: 28),
-              const FilledButton(onPressed: null, child: Text('Confirmer')),
-              const SizedBox(height: 12),
-              const Text(
-                  'Le retrait sera activé lorsque le service Mobile Money sera connecté.',
-                  style: TextStyle(color: muted, height: 1.45)),
-            ],
-          ]);
-}
-
-void _noop() {}
-
-class _FlowProgress extends StatelessWidget {
-  const _FlowProgress({required this.current, required this.total});
-  final int current, total;
-  @override
-  Widget build(BuildContext context) => Row(
-      children: List.generate(
-          total,
-          (i) => Expanded(
-              child: Container(
-                  margin: EdgeInsets.only(right: i == total - 1 ? 0 : 6),
-                  height: 4,
-                  decoration: BoxDecoration(
-                      color: i < current ? primary : _border,
-                      borderRadius: BorderRadius.circular(4))))));
-}
-
-class _FlowSummary extends StatelessWidget {
-  const _FlowSummary({required this.label, required this.value});
-  final String label, value;
-  @override
-  Widget build(BuildContext context) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 9),
-      child: Row(children: [
-        Expanded(child: Text(label, style: const TextStyle(color: muted))),
-        Text(value,
-            style: const TextStyle(color: _ink, fontWeight: FontWeight.w700))
-      ]));
-}
-
 class _InformationSheet extends StatelessWidget {
   const _InformationSheet(
       {required this.title,
@@ -1276,41 +1147,6 @@ class _InformationSheet extends StatelessWidget {
         FilledButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('Fermer')),
-      ]);
-}
-
-class _HistorySheet extends StatelessWidget {
-  const _HistorySheet(
-      {required this.transactions,
-      required this.loading,
-      required this.error,
-      required this.onRefresh});
-  final List<Map<String, dynamic>> transactions;
-  final bool loading;
-  final String? error;
-  final Future<void> Function() onRefresh;
-
-  @override
-  Widget build(BuildContext context) =>
-      _SheetLayout(title: 'Historique', children: [
-        if (loading)
-          const Center(child: CircularProgressIndicator())
-        else if (error != null) ...[
-          _ErrorBox(message: error!),
-          TextButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-                unawaited(onRefresh());
-              },
-              icon: const Icon(Icons.refresh),
-              label: const Text('Réessayer'))
-        ] else if (transactions.isEmpty)
-          const _EmptyState(
-              icon: Icons.receipt_long_outlined,
-              title: 'Aucune opération',
-              body: 'Tes recharges et leurs statuts apparaîtront ici.')
-        else
-          ...transactions.map((item) => _TransactionRow(transaction: item)),
       ]);
 }
 

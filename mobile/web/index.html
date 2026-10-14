@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#176B50">
+  <meta name="description" content="Aperçu de l’application mobile Lola Pay — démonstration sans fonds réels.">
+  <title>Lola Pay — aperçu mobile</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #EAF4EF; }
+    body { display: grid; place-items: center; }
+    #lola-app { width: min(100vw, 430px); height: min(100dvh, 880px); overflow: hidden; border-radius: 18px; box-shadow: 0 18px 60px #123D3220; }
+    @media (max-width: 450px) { #lola-app { height: 100dvh; border-radius: 0; } }
+  </style>
+</head>
+<body>
+  <div id="lola-app" aria-label="Application Lola Pay — démonstration"></div>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

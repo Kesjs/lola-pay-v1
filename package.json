@@ -1,0 +1,17 @@
+{
+  "name": "lola-pay",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Prototype sandbox fonctionnel de Lola Pay",
+  "workspaces": ["api", "admin"],
+  "scripts": {
+    "dev:api": "npm --workspace api run start:dev",
+    "dev:admin": "npm --workspace admin run dev",
+    "build:api": "npm --workspace api run build",
+    "build:admin": "npm --workspace admin run build",
+    "typecheck": "npm run typecheck:api && npm run typecheck:admin",
+    "typecheck:api": "npm --workspace api run typecheck",
+    "typecheck:admin": "npm --workspace admin run typecheck",
+    "design:scan": "npx impeccable detect admin/src"
+  }
+}

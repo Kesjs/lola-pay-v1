@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+.dart_tool/
+.idea/
+.vscode/
+*.lock
+.env
+.env.*
+!.env.example
+.impeccable/review/
+.data/
+supabase/.temp/
